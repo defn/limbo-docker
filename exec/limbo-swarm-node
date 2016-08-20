@@ -9,7 +9,6 @@ function main {
   ssh-keygen -R "$BASEBOX_IP"
   ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo rm -fv /etc/docker/key.json || true
   ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo service docker stop || true
-  ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo ifup br0 || true
   ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo service docker start || true
   
   ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo docker kill swarm-agent-master 2>&- || true
@@ -23,7 +22,7 @@ function main {
   "$BASEBOX_INSTANCE" docker machine create --driver generic --generic-ip-address "$BASEBOX_IP" --generic-ssh-user ubuntu \
     --swarm \
     --swarm-discovery="consul://${ip_consul}:8500" \
-    --engine-storage-driver="devicemapper --storage-opt dm.thinpooldev=/dev/mapper/system-docker--data-tpool" \
+    --engine-storage-driver="overlay" \
     --engine-opt="cluster-store=consul://${ip_consul}:8500" \
     --engine-opt="cluster-advertise=eth1:2376" \
     --engine-opt="bridge=br0" \
