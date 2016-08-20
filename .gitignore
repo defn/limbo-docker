@@ -1,0 +1,23 @@
+# vagrant
+/.vagrant.d
+/.vagrant
+/remote
+/instance
+
+# bundler
+/.bundle
+
+# virtualbox
+/cidata*
+/*.vdi
+
+# logs
+/*.log
+/log
+
+# services
+/sv
+
+# ssh keys
+/.ssh/ssh-vagrant
+/.ssh/ssh-vagrant.pub
