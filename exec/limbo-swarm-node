@@ -9,7 +9,6 @@ function main {
   ssh-keygen -R "$BASEBOX_IP"
   ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo rm -fv /etc/docker/key.json || true
   ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo service docker stop || true
-  ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo ifup br0 || true
   ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo service docker start || true
   
   ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo docker kill swarm-agent-master 2>&- || true
