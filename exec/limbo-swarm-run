@@ -6,14 +6,7 @@ function main {
 
   eval $(docker machine env --swarm --no-proxy $BASEBOX_INSTANCE)
 
-  case "${1:-}" in
-    *:*)
-      exec docker run --rm -i -u ubuntu -w /home/ubuntu "$@"
-      ;;
-    *)
-      exec docker run --rm -i -u ubuntu -w /home/ubuntu --net "${BASEBOX_NAME}" "${BASEBOX_NAME}:vagrant" "$@"
-      ;;
-  esac
+  exec docker run --rm -i -u ubuntu -w /home/ubuntu --net "$@"
 }
 
 source sub "$BASH_SOURCE" "$@"
