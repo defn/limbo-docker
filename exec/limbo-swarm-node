@@ -8,14 +8,10 @@ function main {
 
   ssh-keygen -R "$BASEBOX_IP"
   ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo rm -fv /etc/docker/key.json || true
+  ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo docker rm -f swarm-agent-master 2>&- || true
+  ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo docker rm -f swarm-agent 2>&- || true
   ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo service docker stop || true
   ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo service docker start || true
-  
-  ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo docker kill swarm-agent-master 2>&- || true
-  ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo docker rm swarm-agent-master 2>&- || true
-
-  ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo docker kill swarm-agent 2>&- || true
-  ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo docker rm swarm-agent 2>&- || true
 
   local ip_consul="${CACHE_VIP}"
 
@@ -24,9 +20,8 @@ function main {
     --swarm-discovery="consul://${ip_consul}:8500" \
     --engine-storage-driver="overlay" \
     --engine-opt="cluster-store=consul://${ip_consul}:8500" \
+    --engine-opt="bip=${BASEBOX_DOCKER_NETWORK_PREFIX}.1/24" \
     --engine-opt="cluster-advertise=eth1:2376" \
-    --engine-opt="bridge=br0" \
-    --engine-opt="fixed-cidr=${BASEBOX_DOCKER_NETWORK_PREFIX}.0/24" \
     "$@" \
     "$BASEBOX_INSTANCE"
 }
