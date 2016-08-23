@@ -26,7 +26,7 @@ function main {
     --engine-opt="cluster-store=consul://${ip_consul}:8500" \
     --engine-opt="cluster-advertise=vboxnet0:2376" \
     --engine-opt="bridge=br0" \
-    --engine-opt="fixed-cidr=${BASEBOX_DOCKER_NETWORK_PREFIX}.0/28" \
+    --engine-opt="fixed-cidr=${BASEBOX_DOCKER_NETWORK_PREFIX}.0/24" \
     "$@" \
     "$BASEBOX_INSTANCE"
 }
