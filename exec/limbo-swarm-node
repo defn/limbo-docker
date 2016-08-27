@@ -18,7 +18,7 @@ function main {
   "$BASEBOX_INSTANCE" docker machine create --driver generic --generic-ip-address "$BASEBOX_IP" --generic-ssh-user ubuntu \
     --swarm \
     --swarm-discovery="consul://${ip_consul}:8500" \
-    --engine-storage-driver="overlay2" \
+    --engine-storage-driver="overlay" \
     --engine-opt="cluster-store=consul://${ip_consul}:8500" \
     --engine-opt="bip=${BASEBOX_DOCKER_NETWORK_PREFIX}.1/24" \
     --engine-opt="cluster-advertise=eth1:2376" \
