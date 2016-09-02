@@ -1,10 +1,31 @@
 #!/usr/bin/env bash
 
+export MACHINE_STORAGE_PATH="${CACHE_DIR}/.docker/machine"
+export VAGRANT_DEFAULT_PROVIDER='docker'
+
 function main {
   local shome="${_limbo_home:-"$(cd -P -- "$(dirname -- "$BASH_SOURCE")/.." && pwd -P)"}"
   source "$shome/script/profile"
 
-  limbo swarm node
+  set -x
+
+  local ip_lxd="$("$BASEBOX_INSTANCE" lxc info docker | egrep 'eth0:\tinet\t' | awk '{print $3}')"
+
+  cat "$BLOCK_PATH/limbo/.ssh/ssh-vagrant.pub" | "$BASEBOX_INSTANCE" lxc exec docker -- sudo su - ubuntu bash -c 'cd; mkdir -p .ssh; tee .ssh/authorized_keys'
+
+  docker machine rm -f "$BASEBOX_INSTANCE"
+
+  ssh-keygen -R "$ip_lxd"
+  ssh -o StrictHostKeyChecking=no ubuntu@"$ip_lxd" sudo rm -fv /etc/docker/key.json || true
+  ssh -o StrictHostKeyChecking=no ubuntu@"$ip_lxd" sudo service docker stop || true
+  ssh -o StrictHostKeyChecking=no ubuntu@"$ip_lxd" sudo service docker start || true
+
+  docker machine create --driver generic --generic-ip-address "$ip_lxd" --generic-ssh-user ubuntu \
+    --engine-install-url="" \
+    --engine-storage-driver="overlay" \
+    --engine-opt="bip=${BASEBOX_DOCKER_NETWORK_PREFIX}.1/24" \
+    "$@" \
+    "$BASEBOX_INSTANCE"
 }
 
 source sub "$BASH_SOURCE" "$@"
