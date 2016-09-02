@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
   
-function _limbo_swarm_profile {
-  local shome="${_limbo_swarm_home:-"$(cd -P -- "$(dirname -- "$BASH_SOURCE")/.." && pwd -P)"}"
+function _limbo_docker_profile {
+  local shome="${_limbo_docker_home:-"$(cd -P -- "$(dirname -- "$BASH_SOURCE")/.." && pwd -P)"}"
   PATH="$shome/exec:$PATH"
 
   export LIMBO_HOME="$shome"
 }
 
-_limbo_swarm_profile
+_limbo_docker_profile
