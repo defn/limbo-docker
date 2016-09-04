@@ -21,6 +21,7 @@ function main {
     --engine-install-url="" \
     --engine-storage-driver="overlay" \
     --engine-opt="bip=${BASEBOX_DOCKER_NETWORK_PREFIX}.1/24" \
+    --engine-opt="insecure-registry=172.28.130.2:5000" \
     "$@" \
     "$BASEBOX_INSTANCE"
 }
