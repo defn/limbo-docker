@@ -8,8 +8,8 @@ function main {
 
   ssh-keygen -R "$BASEBOX_IP"
   ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo rm -fv /etc/docker/key.json || true
-  ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo docker rm -f swarm-agent-master 2>&- || true
-  ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo docker rm -f swarm-agent 2>&- || true
+  ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo docker rm -f swarm-agent-master 2>/dev/null || true
+  ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo docker rm -f swarm-agent 2>/dev/null || true
   ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo service docker stop || true
   ssh -o StrictHostKeyChecking=no ubuntu@"$BASEBOX_IP" sudo service docker start || true
   
