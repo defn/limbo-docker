@@ -63,6 +63,8 @@ function main {
     --engine-opt="insecure-registry=172.28.130.2:5000" \
     "$nm_docker"
 
+  lxc list "${nm_lxd}"
+
   if [[ "$nm_lxd" == "docker" ]]; then
 	  lxc exec "${nm_lxd}" -- sync
     lxc snapshot "${nm_lxd}" docker0
