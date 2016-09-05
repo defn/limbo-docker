@@ -64,11 +64,6 @@ function main {
     "$nm_docker"
 
   lxc list "${nm_lxd}"
-
-  if [[ "$nm_lxd" == "docker" ]]; then
-	  lxc exec "${nm_lxd}" -- sync
-    lxc snapshot "${nm_lxd}" docker0
-  fi
 }
 
 source sub "$BASH_SOURCE" "$@"
