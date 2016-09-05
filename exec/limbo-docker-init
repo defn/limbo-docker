@@ -48,8 +48,11 @@ function main {
   fi
 
 	lxc exec "${nm_lxd}" -- touch /root/.cloud-init.hostname
+
 	lxc exec "${nm_lxd}" -- rm -rf /var/lib/cloud/instance
 	lxc exec "${nm_lxd}" -- cloud-init init
+  sleep 2
+
 	lxc exec "${nm_lxd}" -- rm -rf /var/lib/cloud/instance
 	lxc exec "${nm_lxd}" -- cloud-init init
 
