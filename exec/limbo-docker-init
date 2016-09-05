@@ -29,7 +29,7 @@ function main {
 
   if [[ "$nm_lxd" == "docker" ]]; then
     lxc launch ubuntu:16.04 "$nm_lxd" -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=false -c security.privileged=false 2>/dev/null || true
-    while [[ "$(lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 1; done
+    while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 1; done
 
     echo "Acquire::http::Proxy \"http://$CACHE_VIP:3128\";" > ".99boxcache.$$" 
     lxc file push ".99boxcache.$$" "${nm_lxd}"/etc/apt/apt.conf.d/99boxcache
@@ -44,7 +44,7 @@ function main {
   else
     lxc copy docker/docker0 "$nm_lxd"
     lxc start "$nm_lxd"
-    while [[ "$(lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 1; done
+    while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 1; done
   fi
 
 	lxc exec "${nm_lxd}" -- touch /root/.cloud-init.hostname
@@ -54,7 +54,7 @@ function main {
 	lxc exec "${nm_lxd}" -- cloud-init init
 
 	lxc restart "${nm_lxd}"
-  while [[ "$(lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 1; done
+  while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 1; done
 
   local ip_docker="$(lxc list "${nm_lxd}" --format json | jq -r '.[].state.network.eth0.addresses[] | select(.family == "inet").address')"
   ssh-keygen -R "$ip_docker"
