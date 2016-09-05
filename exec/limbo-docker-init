@@ -76,6 +76,7 @@ function main {
 
   limbo vagrant ssh -- sudo route add -net "${net_docker}.0" netmask 255.255.255.0 gw "$ip_docker"
 
+  lxc exec "${nm_lxd}" -- rm -f /etc/docker/key.json
   docker machine rm -f "$nm_docker" 2>/dev/null || true
   docker machine create --driver generic --generic-ip-address "$ip_docker" --generic-ssh-user ubuntu \
     --engine-install-url="" \
