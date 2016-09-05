@@ -12,9 +12,8 @@ function main {
 
 	lxc launch xenial docker -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true -c security.privileged=true || true
 
-  lxc exec docker -- mkdir -p /home/ubuntu/.ssh
-  lxc file push "$BLOCK_PATH/limbo/.ssh/ssh-vagrant.pub" docker/home/ubuntu/.ssh/authorized_keys
-  lxc exec docker -- chown -R ubuntu:ubuntu /home/ubuntu/.ssh
+  lxc exec docker -- install -d -o ubuntu -g ubuntu -m 0700 /home/ubuntu/.ssh
+  lxc file push --uid ubuntu --gid ubuntu --mode 0600 "$BLOCK_PATH/limbo/.ssh/ssh-vagrant.pub" docker/home/ubuntu/.ssh/authorized_keys
 
   echo "Acquire::http::Proxy \"http://$CACHE_VIP:3128\";" > ".99boxcache.$$" 
   lxc file push ".99boxcache.$$" docker/etc/apt/apt.conf.d/99boxcache
@@ -36,7 +35,6 @@ function main {
   rm -f ".docker.$$"
 	lxc exec docker -- env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io
 
-  #ssh -o StrictHostKeyChecking=no ubuntu@"$ip_lxd" sudo rm -fv /etc/docker/key.json || true
   docker machine rm -f "$BASEBOX_INSTANCE" 2>/dev/null || true
   docker machine create --driver generic --generic-ip-address "$ip_lxd" --generic-ssh-user ubuntu \
     --engine-install-url="" \
