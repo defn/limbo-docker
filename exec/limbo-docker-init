@@ -30,8 +30,10 @@ function main {
   rm -f ".docker.$$"
 	lxc exec docker -- env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io
 
+  lxc list
 	lxc restart docker
   sleep 10
+  lxc list
   local ip_lxd="$("$BASEBOX_INSTANCE" lxc info docker | egrep 'eth0:\tinet\t' | awk '{print $3}')"
   ssh-keygen -R "$ip_lxd"
 
