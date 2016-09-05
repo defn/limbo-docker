@@ -38,6 +38,7 @@ function main {
     "$@" \
     "$BASEBOX_INSTANCE"
 	lxc restart docker
+  sleep 10
 }
 
 source sub "$BASH_SOURCE" "$@"
