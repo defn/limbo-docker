@@ -20,13 +20,13 @@ function main {
 	lxc exec docker -- rm -rf /var/lib/cloud/instance
 	lxc exec docker -- cloud-init init
 
+	lxc restart docker
+  sleep 10
   local ip_lxd="$("$BASEBOX_INSTANCE" lxc info docker | egrep 'eth0:\tinet\t' | awk '{print $3}')"
   ssh-keygen -R "$ip_lxd"
 
 	echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock --storage-driver overlay --bip ${BASEBOX_DOCKER_NETWORK_PREFIX}.1/24'" | lxc exec docker -- tee /etc/default/docker
 	lxc exec docker -- env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io
-  ssh -o StrictHostKeyChecking=no ubuntu@"$ip_lxd" sudo service docker stop || true
-  ssh -o StrictHostKeyChecking=no ubuntu@"$ip_lxd" sudo service docker start || true
 
   #ssh -o StrictHostKeyChecking=no ubuntu@"$ip_lxd" sudo rm -fv /etc/docker/key.json || true
   docker machine rm -f "$BASEBOX_INSTANCE" 2>/dev/null || true
@@ -37,8 +37,6 @@ function main {
     --engine-opt="insecure-registry=172.28.130.2:5000" \
     "$@" \
     "$BASEBOX_INSTANCE"
-	lxc restart docker
-  sleep 10
 }
 
 source sub "$BASH_SOURCE" "$@"
