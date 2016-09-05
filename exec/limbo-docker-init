@@ -20,8 +20,14 @@ function main {
 
   set -x
 
+  lxc profile create limbo || true
+  lxc profile set limbo user.user-data - < "$BLOCK_PATH/limbo/cidata/user-data"
+  lxc profile device add docker vagrant disk source=/vagrant path=/vagrant
+  lxc profile device add docker packer disk source=/vagrant/tmp/packer path=/vagrant/tmp/packer
+
+  lxc config set storage.lvm_volume_size 20GiB
+
   if [[ "$nm_lxd" == "docker" ]]; then
-    lxc config set storage.lvm_volume_size 20GiB
     lxc launch ubuntu:16.04 "$nm_lxd" -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true -c security.privileged=true || true
     sleep 10
 
