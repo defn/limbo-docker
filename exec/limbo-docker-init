@@ -34,6 +34,8 @@ function main {
     lxc file push ".docker.$$" "${nm_lxd}"/etc/default/docker
     rm -f ".docker.$$"
     lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io
+
+    limbo network init
   else
     lxc copy docker/docker0 "$nm_lxd"
     lxc start "$nm_lxd"
@@ -51,12 +53,7 @@ function main {
   local ip_docker="$("$BASEBOX_INSTANCE" lxc info "${nm_lxd}" | egrep 'eth0:\tinet\t' | awk '{print $3}')"
   ssh-keygen -R "$ip_docker"
 
-  if [[ "$nm_lxd" == "docker" ]]; then
-    limbo network init
-  else
-    true
-    # TODO initial network just for the new docker
-  fi
+  limbo vagrant ssh -- sudo route add -net "${net_docker}.0" netmask 255.255.255.0 gw $(limbo lxc info "${nm_lxd}" | egrep 'eth0:\tinet\t' | awk '{print $3}')
 
   docker machine rm -f "$nm_docker" 2>/dev/null || true
   docker machine create --driver generic --generic-ip-address "$ip_docker" --generic-ssh-user ubuntu \
