@@ -67,11 +67,13 @@ function main {
   if [[ "$nm_lxd" == "docker" ]]; then
     lxc exec "$nm_lxd" -- apt-get install -y aptitude ntp curl unzip git perl ruby language-pack-en nfs-common build-essential dkms lvm2 xfsprogs xfsdump bridge-utils thin-provisioning-tools software-properties-common
     ssh -A -o StrictHostKeyChecking=no "ubuntu@${ip_docker}" ssh -o StrictHostKeyChecking=no git@github.com true 2>/dev/null || true
-    ssh -A "ubuntu@${ip_docker}" git clone git@github.com:defn/home
-    ssh "ubuntu@${ip_docker}" mv home/.git .
-    ssh "ubuntu@${ip_docker}" git reset --hard
-    ssh "ubuntu@${ip_docker}" rm -rf home .profile
-    ssh -A "ubuntu@${ip_docker}" make
+    if ! ssh "ubuntu@${ip_docker}" ls -d .git 2>/dev/null; then
+      ssh -A "ubuntu@${ip_docker}" git clone git@github.com:defn/home
+      ssh "ubuntu@${ip_docker}" mv home/.git .
+      ssh "ubuntu@${ip_docker}" git reset --hard
+      ssh "ubuntu@${ip_docker}" rm -rf home .profile
+      ssh -A "ubuntu@${ip_docker}" make
+    fi
   fi
 
   limbo vagrant ssh -- sudo route add -net "${net_docker}.0" netmask 255.255.255.0 gw "$ip_docker"
