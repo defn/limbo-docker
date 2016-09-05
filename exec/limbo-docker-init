@@ -47,13 +47,16 @@ function main {
     while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 1; done
   fi
 
+  while ! lxc exec "$nm_lxd" -- ls -ld /var/lib/cloud/instance/boot-finished; do
+    sleep 1
+  done
+
 	lxc exec "${nm_lxd}" -- touch /root/.cloud-init.hostname
 
-	lxc exec "${nm_lxd}" -- rm -rf /var/lib/cloud/instance
+	lxc exec "${nm_lxd}" -- rm -f /var/lib/cloud/instance
 	lxc exec "${nm_lxd}" -- cloud-init init
-  sleep 2
 
-	lxc exec "${nm_lxd}" -- rm -rf /var/lib/cloud/instance
+	lxc exec "${nm_lxd}" -- rm -f /var/lib/cloud/instance
 	lxc exec "${nm_lxd}" -- cloud-init init
 
 	lxc restart "${nm_lxd}"
