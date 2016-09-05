@@ -29,6 +29,7 @@ function main {
   ssh -o StrictHostKeyChecking=no ubuntu@"$ip_lxd" sudo service docker start || true
 
   #ssh -o StrictHostKeyChecking=no ubuntu@"$ip_lxd" sudo rm -fv /etc/docker/key.json || true
+  docker machine rm -f "$BASEBOX_INSTANCE" 2>/dev/null || true
   docker machine create --driver generic --generic-ip-address "$ip_lxd" --generic-ssh-user ubuntu \
     --engine-install-url="" \
     --engine-storage-driver="overlay" \
