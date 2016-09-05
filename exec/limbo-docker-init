@@ -61,9 +61,17 @@ function main {
 
 	lxc restart "${nm_lxd}"
   while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 1; done
-
   local ip_docker="$(lxc list "${nm_lxd}" --format json | jq -r '.[].state.network.eth0.addresses[] | select(.family == "inet").address')"
   ssh-keygen -R "$ip_docker"
+
+  if [[ "$nm_lxd" == "docker" ]]; then
+    lxc exec "$nm_lxd" -- apt-get install -y aptitude ntp curl unzip git perl ruby language-pack-en nfs-common build-essential dkms lvm2 xfsprogs xfsdump bridge-utils thin-provisioning-tools software-properties-common
+    ssh -A "ubuntu@${ip_docker}" git clone git@github.com:defn/home
+    ssh "ubuntu@${ip_docker}" mv home/.git .
+    ssh "ubuntu@${ip_docker}" git reset --hard
+    ssh "ubuntu@${ip_docker}" rm -rf home .profile
+    ssh -A "ubuntu@${ip_docker}" make
+  fi
 
   limbo vagrant ssh -- sudo route add -net "${net_docker}.0" netmask 255.255.255.0 gw "$ip_docker"
 
