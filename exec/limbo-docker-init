@@ -8,44 +8,68 @@ function main {
   local shome="${_limbo_home:-"$(cd -P -- "$(dirname -- "$BASH_SOURCE")/.." && pwd -P)"}"
   source "$shome/script/profile"
 
+  local nm_lxd='docker'
+  local net_docker="$BASEBOX_DOCKER_NETWORK_PREFIX"
+  local nm_docker="$BASEBOX_INSTANCE"
+
+  if [[ "$#" != 0 ]]; then
+    nm_lxd="$1"; shift
+    nm_docker="$nm_lxd"
+    net_docker="$1"; shift
+  fi
+
   set -x
 
-	lxc launch xenial docker -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true -c security.privileged=true || true
+  if [[ "$nm_lxd" == "docker" ]]; then
+    lxc launch xenial "$nm_lxd" -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true -c security.privileged=true || true
 
-  lxc exec docker -- install -d -o ubuntu -g ubuntu -m 0700 /home/ubuntu/.ssh
-  lxc file push --uid 1000 --gid 1000 --mode 0600 "$BLOCK_PATH/limbo/.ssh/ssh-vagrant.pub" docker/home/ubuntu/.ssh/authorized_keys
+    lxc exec "$nm_lxd"-- install -d -o ubuntu -g ubuntu -m 0700 /home/ubuntu/.ssh
+    lxc file push --uid 1000 --gid 1000 --mode 0600 "$BLOCK_PATH/limbo/.ssh/ssh-vagrant.pub" "${nm_lxd}"/home/ubuntu/.ssh/authorized_keys
 
-  echo "Acquire::http::Proxy \"http://$CACHE_VIP:3128\";" > ".99boxcache.$$" 
-  lxc file push ".99boxcache.$$" docker/etc/apt/apt.conf.d/99boxcache
-  rm -f ".99boxcache.$$"
+    echo "Acquire::http::Proxy \"http://$CACHE_VIP:3128\";" > ".99boxcache.$$" 
+    lxc file push ".99boxcache.$$" "${nm_lxd}"/etc/apt/apt.conf.d/99boxcache
+    rm -f ".99boxcache.$$"
 
-	lxc exec docker -- touch /root/.cloud-init.hostname
-	lxc exec docker -- rm -rf /var/lib/cloud/instance
-	lxc exec docker -- cloud-init init
-	lxc exec docker -- rm -rf /var/lib/cloud/instance
-	lxc exec docker -- cloud-init init
+    echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock --storage-driver overlay --bip ${net_docker}.1/24'" > ".docker.$$"
+    lxc file push ".docker.$$" "${nm_lxd}"/etc/default/docker
+    rm -f ".docker.$$"
+    lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io
+  else
+    lxc copy docker/docker0 "$nm_lxd"
+    lxc start "$nm_lxd"
+  fi
 
-	echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock --storage-driver overlay --bip ${BASEBOX_DOCKER_NETWORK_PREFIX}.1/24'" > ".docker.$$"
-  lxc file push ".docker.$$" docker/etc/default/docker
-  rm -f ".docker.$$"
-	lxc exec docker -- env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io
+	lxc exec "${nm_lxd}" -- touch /root/.cloud-init.hostname
+	lxc exec "${nm_lxd}" -- rm -rf /var/lib/cloud/instance
+	lxc exec "${nm_lxd}" -- cloud-init init
+	lxc exec "${nm_lxd}" -- rm -rf /var/lib/cloud/instance
+	lxc exec "${nm_lxd}" -- cloud-init init
 
-  lxc list
-	lxc restart docker
+	lxc restart "${nm_lxd}"
   sleep 10
-  lxc list
-  local ip_lxd="$("$BASEBOX_INSTANCE" lxc info docker | egrep 'eth0:\tinet\t' | awk '{print $3}')"
-  ssh-keygen -R "$ip_lxd"
+  lxc list "${nm_lxd}"
+  local ip_docker="$("$BASEBOX_INSTANCE" lxc info "${nm_lxd}" | egrep 'eth0:\tinet\t' | awk '{print $3}')"
+  ssh-keygen -R "$ip_docker"
 
-  limbo network init
-  docker machine rm -f "$BASEBOX_INSTANCE" 2>/dev/null || true
-  docker machine create --driver generic --generic-ip-address "$ip_lxd" --generic-ssh-user ubuntu \
+  if [[ "$nm_lxd" == "docker" ]]; then
+    limbo network init
+  else
+    true
+    # TODO initial network just for the new docker
+  fi
+
+  docker machine rm -f "$nm_docker" 2>/dev/null || true
+  docker machine create --driver generic --generic-ip-address "$ip_docker" --generic-ssh-user ubuntu \
     --engine-install-url="" \
     --engine-storage-driver="overlay" \
-    --engine-opt="bip=${BASEBOX_DOCKER_NETWORK_PREFIX}.1/24" \
+    --engine-opt="bip=${net_docker}.1/24" \
     --engine-opt="insecure-registry=172.28.130.2:5000" \
-    "$@" \
-    "$BASEBOX_INSTANCE"
+    "$nm_docker"
+
+  if [[ "$nm_lxd" == "docker" ]]; then
+	  lxc exec "${nm_lxd}" -- sync
+    lxc snapshot "${nm_lxd}" docker0
+  fi
 }
 
 source sub "$BASH_SOURCE" "$@"
