@@ -59,7 +59,9 @@ function main {
   local ip_docker="$("$BASEBOX_INSTANCE" lxc info "${nm_lxd}" | egrep 'eth0:\tinet\t' | awk '{print $3}')"
   ssh-keygen -R "$ip_docker"
 
-  limbo vagrant ssh -- sudo route add -net "${net_docker}.0" netmask 255.255.255.0 gw $(lxc info "${nm_lxd}" | egrep 'eth0:\tinet\t' | awk '{print $3}')
+  limbo vagrant ssh -- \
+    sudo route add -net "${net_docker}.0" netmask 255.255.255.0 \
+      gw "$(lxc list "${nm_lxd}" --format json | jq -r '.[].state.network.eth0.addresses[] | select(.family == "inet").address')"
 
   docker machine rm -f "$nm_docker" 2>/dev/null || true
   docker machine create --driver generic --generic-ip-address "$ip_docker" --generic-ssh-user ubuntu \
