@@ -11,8 +11,14 @@ function main {
   set -x
 
 	lxc launch xenial docker -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true -c security.privileged=true || true
-  cat "$BLOCK_PATH/limbo/.ssh/ssh-vagrant.pub" | "$BASEBOX_INSTANCE" lxc exec docker -- sudo su - ubuntu bash -c 'cd; mkdir -p .ssh; tee .ssh/authorized_keys'
-  echo "Acquire::http::Proxy \"http://$CACHE_VIP:3128\";" | lxc exec docker -- tee /etc/apt/apt.conf.d/99boxcache
+
+  lxc exec docker -- mkdir -p /home/ubuntu/.ssh
+  lxc file push "$BLOCK_PATH/limbo/.ssh/ssh-vagrant.pub" docker/home/ubuntu/.ssh/authorized_keys
+  lxc exec docker -- chown -R ubuntu:ubuntu /home/ubuntu/.ssh
+
+  echo "Acquire::http::Proxy \"http://$CACHE_VIP:3128\";" > ".99boxcache.$$" 
+  lxc file push ".99boxcache.$$" docker/etc/apt/apt.conf.d/99boxcache
+  rm -f ".99boxcache.$$"
 
 	lxc exec docker -- touch /root/.cloud-init.hostname
 	lxc exec docker -- rm -rf /var/lib/cloud/instance
@@ -25,7 +31,9 @@ function main {
   local ip_lxd="$("$BASEBOX_INSTANCE" lxc info docker | egrep 'eth0:\tinet\t' | awk '{print $3}')"
   ssh-keygen -R "$ip_lxd"
 
-	echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock --storage-driver overlay --bip ${BASEBOX_DOCKER_NETWORK_PREFIX}.1/24'" | lxc exec docker -- tee /etc/default/docker
+	echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock --storage-driver overlay --bip ${BASEBOX_DOCKER_NETWORK_PREFIX}.1/24'" > ".docker.$$"
+  lxc file push ".docker.$$" docker/etc/default/docker
+  rm -f ".docker.$$"
 	lxc exec docker -- env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io
 
   #ssh -o StrictHostKeyChecking=no ubuntu@"$ip_lxd" sudo rm -fv /etc/docker/key.json || true
