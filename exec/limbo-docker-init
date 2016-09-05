@@ -25,15 +25,15 @@ function main {
 	lxc exec docker -- rm -rf /var/lib/cloud/instance
 	lxc exec docker -- cloud-init init
 
-	lxc restart docker
-  sleep 10
-  local ip_lxd="$("$BASEBOX_INSTANCE" lxc info docker | egrep 'eth0:\tinet\t' | awk '{print $3}')"
-  ssh-keygen -R "$ip_lxd"
-
 	echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock --storage-driver overlay --bip ${BASEBOX_DOCKER_NETWORK_PREFIX}.1/24'" > ".docker.$$"
   lxc file push ".docker.$$" docker/etc/default/docker
   rm -f ".docker.$$"
 	lxc exec docker -- env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io
+
+	lxc restart docker
+  sleep 10
+  local ip_lxd="$("$BASEBOX_INSTANCE" lxc info docker | egrep 'eth0:\tinet\t' | awk '{print $3}')"
+  ssh-keygen -R "$ip_lxd"
 
   docker machine rm -f "$BASEBOX_INSTANCE" 2>/dev/null || true
   docker machine create --driver generic --generic-ip-address "$ip_lxd" --generic-ssh-user ubuntu \
