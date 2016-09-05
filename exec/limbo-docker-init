@@ -23,14 +23,11 @@ function main {
   if [[ "$nm_lxd" == "docker" ]]; then
     lxc launch xenial "$nm_lxd" -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true -c security.privileged=true || true
 
-    lxc exec "$nm_lxd" -- install -d -o ubuntu -g ubuntu -m 0700 /home/ubuntu/.ssh
-    lxc file push --uid 1000 --gid 1000 --mode 0600 "$BLOCK_PATH/limbo/.ssh/ssh-vagrant.pub" "${nm_lxd}"/home/ubuntu/.ssh/authorized_keys
-
     echo "Acquire::http::Proxy \"http://$CACHE_VIP:3128\";" > ".99boxcache.$$" 
     lxc file push ".99boxcache.$$" "${nm_lxd}"/etc/apt/apt.conf.d/99boxcache
     rm -f ".99boxcache.$$"
 
-    echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock --storage-driver overlay --bip ${net_docker}.1/24'" > ".docker.$$"
+    echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock --storage-driver overlay'" > ".docker.$$"
     lxc file push ".docker.$$" "${nm_lxd}"/etc/default/docker
     rm -f ".docker.$$"
     lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io
