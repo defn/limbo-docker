@@ -37,6 +37,7 @@ function main {
   local ip_lxd="$("$BASEBOX_INSTANCE" lxc info docker | egrep 'eth0:\tinet\t' | awk '{print $3}')"
   ssh-keygen -R "$ip_lxd"
 
+  limbo network update
   docker machine rm -f "$BASEBOX_INSTANCE" 2>/dev/null || true
   docker machine create --driver generic --generic-ip-address "$ip_lxd" --generic-ssh-user ubuntu \
     --engine-install-url="" \
