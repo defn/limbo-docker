@@ -21,7 +21,9 @@ function main {
   set -x
 
   if [[ "$nm_lxd" == "docker" ]]; then
-    lxc launch xenial "$nm_lxd" -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true -c security.privileged=true || true
+    lxc config set storage.lvm_volume_size 20GiB
+    lxc launch ubuntu:16.04 "$nm_lxd" -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true -c security.privileged=true || true
+    sleep 10
 
     echo "Acquire::http::Proxy \"http://$CACHE_VIP:3128\";" > ".99boxcache.$$" 
     lxc file push ".99boxcache.$$" "${nm_lxd}"/etc/apt/apt.conf.d/99boxcache
@@ -36,6 +38,7 @@ function main {
   else
     lxc copy docker/docker0 "$nm_lxd"
     lxc start "$nm_lxd"
+    sleep 10
   fi
 
 	lxc exec "${nm_lxd}" -- touch /root/.cloud-init.hostname
