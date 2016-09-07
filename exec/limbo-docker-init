@@ -29,7 +29,7 @@ function main {
 
   if [[ "$nm_lxd" == "docker" ]]; then
     lxc launch ubuntu:16.04 "$nm_lxd" -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=false -c security.privileged=false 2>/dev/null || true
-    while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 1; done
+    while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
 
     {
       echo "Acquire::http::Proxy \"http://$CACHE_VIP:3128\";" 
@@ -38,20 +38,23 @@ function main {
     lxc file push ".99boxcache.$$" "${nm_lxd}"/etc/apt/apt.conf.d/99boxcache
     rm -f ".99boxcache.$$"
 
-    echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock --storage-driver overlay'" > ".docker.$$"
+    echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock'" > ".docker.$$"
     lxc file push ".docker.$$" "${nm_lxd}"/etc/default/docker
     rm -f ".docker.$$"
-    lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io
+
+    if [[ ! -d /var/lib/docker ]]; then
+      echo lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io
+    fi
 
     limbo network init
   else
     lxc copy docker/docker0 "$nm_lxd"
     lxc start "$nm_lxd"
-    while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 1; done
+    while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
   fi
 
   while ! lxc exec "$nm_lxd" -- ls -ld /var/lib/cloud/instance/boot-finished; do
-    sleep 1
+    sleep 2
   done
 
 	lxc exec "${nm_lxd}" -- touch /root/.cloud-init.hostname
@@ -63,12 +66,13 @@ function main {
 	lxc exec "${nm_lxd}" -- cloud-init init
 
 	lxc restart "${nm_lxd}"
-  while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 1; done
+  while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
   local ip_docker="$(lxc list "${nm_lxd}" --format json | jq -r '.[].state.network.eth0.addresses[] | select(.family == "inet").address')"
   ssh-keygen -R "$ip_docker"
 
-  if [[ "$nm_lxd" == "docker" ]]; then
-    lxc exec "$nm_lxd" -- apt-get install -y aptitude ntp curl unzip git perl ruby language-pack-en nfs-common build-essential dkms lvm2 xfsprogs xfsdump bridge-utils thin-provisioning-tools software-properties-common
+  lxc exec "$nm_lxd" -- apt-get install -y aptitude ntp curl unzip git perl ruby language-pack-en nfs-common build-essential dkms lvm2 xfsprogs xfsdump bridge-utils thin-provisioning-tools software-properties-common btrfs-tools
+
+  if [[ "$nm_lxd" == "xdocker" ]]; then
     ssh -A -o StrictHostKeyChecking=no "ubuntu@${ip_docker}" ssh -o StrictHostKeyChecking=no git@github.com true 2>/dev/null || true
     if ! ssh "ubuntu@${ip_docker}" ls -d .git 2>/dev/null; then
       ssh -A "ubuntu@${ip_docker}" git clone git@github.com:defn/home
@@ -85,7 +89,6 @@ function main {
   docker machine rm -f "$nm_docker" 2>/dev/null || true
   docker machine create --driver generic --generic-ip-address "$ip_docker" --generic-ssh-user ubuntu \
     --engine-install-url="" \
-    --engine-storage-driver="overlay" \
     --engine-opt="bip=${net_docker}.1/24" \
     --engine-opt="insecure-registry=172.28.130.2:5000" \
     "$nm_docker"
