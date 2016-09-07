@@ -27,14 +27,8 @@ function main {
 
   lxc config set storage.lvm_volume_size 20GiB
 
-  lxc exec "$nm_lxd" -- apt-get install -y aptitude ntp curl unzip git perl ruby language-pack-en nfs-common build-essential dkms lvm2 xfsprogs xfsdump bridge-utils thin-provisioning-tools software-properties-common btrfs-tools
-
   if [[ "$nm_lxd" == "docker" ]]; then
-    lxc launch ubuntu:16.04 "$nm_lxd" -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=false -c security.privileged=false 2>/dev/null || true
-    lxc config set "$nm_lxd" security.privileged true
-    lxc config set "$nm_lxd" security.nesting true
-    lxc stop "$nm_lxd"
-    lxc start"$nm_lxd"
+    lxc launch ubuntu:16.04 "$nm_lxd" -p default -p docker -p limbo -c boot.autostart=true 2>/dev/null || true
     while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
 
     {
@@ -44,7 +38,7 @@ function main {
     lxc file push ".99boxcache.$$" "${nm_lxd}"/etc/apt/apt.conf.d/99boxcache
     rm -f ".99boxcache.$$"
 
-    echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock -s btrfs'" > ".docker.$$"
+    echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock -s overlay'" > ".docker.$$"
     lxc file push ".docker.$$" "${nm_lxd}"/etc/default/docker
     rm -f ".docker.$$"
 
@@ -55,11 +49,11 @@ function main {
     limbo network init
   else
     lxc copy docker/docker0 "$nm_lxd"
-    lxc config set "$nm_lxd" security.privileged true
-    lxc config set "$nm_lxd" security.nesting true
     lxc start "$nm_lxd"
     while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
   fi
+
+  lxc exec "$nm_lxd" -- apt-get install -y aptitude ntp curl unzip git perl ruby language-pack-en nfs-common build-essential dkms lvm2 xfsprogs xfsdump bridge-utils thin-provisioning-tools software-properties-common
 
   while ! lxc exec "$nm_lxd" -- ls -ld /var/lib/cloud/instance/boot-finished; do
     sleep 2
@@ -96,7 +90,7 @@ function main {
   docker machine create --driver generic --generic-ip-address "$ip_docker" --generic-ssh-user ubuntu \
     --engine-install-url="" \
     --engine-opt="bip=${net_docker}.1/24" \
-    --engine-storage-driver="btrfs"
+    --engine-storage-driver="overlay" \
     --engine-opt="insecure-registry=172.28.130.2:5000" \
     "$nm_docker"
 
