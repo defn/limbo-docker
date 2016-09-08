@@ -54,9 +54,7 @@ function main {
 
   lxc exec "$nm_lxd" -- apt-get install -y aptitude ntp curl unzip git perl ruby language-pack-en nfs-common build-essential dkms lvm2 xfsprogs xfsdump bridge-utils thin-provisioning-tools software-properties-common
 
-  while ! lxc exec "$nm_lxd" -- ls -ld /var/lib/cloud/instance/boot-finished; do
-    sleep 2
-  done
+  while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active cloud-final.service)" != "active" ]]; do sleep 2; done
 
 	lxc exec "${nm_lxd}" -- touch /root/.cloud-init.hostname
 
