@@ -11,11 +11,15 @@ function main {
   local nm_lxd='docker'
   local net_docker="$BASEBOX_DOCKER_NETWORK_PREFIX"
   local nm_docker="$BASEBOX_INSTANCE"
+  local nm_snapshot="docker"
 
   if [[ "$#" != 0 ]]; then
     nm_lxd="$1"; shift
     nm_docker="$nm_lxd"
     net_docker="$1"; shift
+    if [[ -n "${1:-}" ]]; then
+      nm_snapshot="$1"; shift
+    fi
   fi
 
   set -x
@@ -27,7 +31,7 @@ function main {
   lxc config set storage.lvm_volume_size 20GiB
 
   if [[ "$nm_lxd" == "docker" ]]; then
-    lxc launch ubuntu:16.04 "$nm_lxd" -p default -p docker -p limbo -c boot.autostart=true 2>/dev/null || true
+    lxc launch ubuntu:16.04 "$nm_lxd" -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true 2>/dev/null || true
     while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
 
     {
@@ -44,19 +48,31 @@ function main {
     lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io
     lxc exec "${nm_lxd}" -- service docker stop || true
     lxc exec "${nm_lxd}" -- service docker start
-
     limbo network init
   else
-    lxc copy docker/docker0 "$nm_lxd"
+    if ! lxc copy -c security.nesting=true "$nm_snapshot" "$nm_lxd"; then
+      lxc stop "$nm_lxd"
+    fi
     lxc start "$nm_lxd"
     while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
   fi
 
+  lxc exec "${nm_lxd}" -- lxc profile set default security.privileged true
+  lxc exec "${nm_lxd}" -- lxc profile set default security.nesting true
+
   lxc exec "$nm_lxd" -- apt-get install -y aptitude ntp curl unzip git perl ruby language-pack-en nfs-common build-essential dkms lvm2 xfsprogs xfsdump bridge-utils thin-provisioning-tools software-properties-common
 
-  while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active cloud-final.service)" != "active" ]]; do sleep 2; done
-
 	lxc exec "${nm_lxd}" -- touch /root/.cloud-init.hostname
+  while true; do
+    case "$(echo | lxc exec "$nm_lxd" -- systemctl is-active cloud-final.service)" in
+      active|failed)
+        break
+        ;;
+      *)
+        sleep 2
+        ;;
+    esac
+  done
 
 	lxc exec "${nm_lxd}" -- rm -f /var/lib/cloud/instance
 	lxc exec "${nm_lxd}" -- cloud-init init
