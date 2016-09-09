@@ -25,7 +25,7 @@ function main {
   set -x
 
   lxc profile create limbo 2>/dev/null || true
-  lxc profile set limbo user.user-data - < "$BLOCK_PATH/limbo/cidata/user-data"
+  lxc profile set limbo user.user-data - < "$shome/cidata/user-data"
   lxc profile device add docker vagrant disk source=/vagrant path=/vagrant 2>/dev/null || true
 
   lxc config set storage.lvm_volume_size 20GiB
