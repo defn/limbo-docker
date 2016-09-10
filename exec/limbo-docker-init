@@ -8,11 +8,12 @@ function main {
   local shome="${_limbo_home:-"$(cd -P -- "$(dirname -- "$BASH_SOURCE")/.." && pwd -P)"}"
   source "$shome/script/profile"
 
-  local nm_lxd='docker'
-  local net_docker="$BASEBOX_DOCKER_NETWORK_PREFIX"
-  local nest_bridge="$BASEBOX_NESTED_NETWORK_PREFIX"
+  local nm_lxd='spiral'
   local nm_docker="$BASEBOX_INSTANCE"
   local nm_snapshot="docker"
+
+  local net_docker="$BASEBOX_DOCKER_NETWORK_PREFIX"
+  local nest_bridge="$BASEBOX_NESTED_NETWORK_PREFIX"
 
   if [[ "$#" != 0 ]]; then
     nm_lxd="$1"; shift
@@ -30,18 +31,16 @@ function main {
 
   lxc config set storage.lvm_volume_size 20GiB
 
-  if [[ "$nm_lxd" == "docker" ]]; then
-    lxc launch ubuntu:16.04 docker -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true 2>/dev/null || true
-    while [[ "$(echo | lxc exec docker -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
-    lxc exec docker -- mkdir -p /var/lib/docker
-    lxc config device add docker docker disk source=/dev/system/docker path=/var/lib/docker
+  if [[ "$nm_lxd" == "spiral" ]]; then
+    lxc launch ubuntu:16.04 "$nm_lxd" -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true 2>/dev/null || true
+    while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
+    lxc exec "$nm_lxd" -- mkdir -p /var/lib/docker
+    lxc config device add "$nm_lxd"dockerdocker disk source=/dev/system/docker path=/var/lib/docker 2>/dev/null || true
+    lxc image copy ubuntu:16.04 local: --copy-aliases
 
-    lxc launch ubuntu:16.04 lxd -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true 2>/dev/null || true
-    while [[ "$(echo | lxc exec "lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
+		lxc exec "$nm_lxd" -- service lxd stop 2>/dev/null || true
 
-		lxc exec lxd -- service lxd stop 2>/dev/null || true
-
-		cat <<EOF | lxc exec lxd -- tee /etc/default/lxd-bridge
+		cat <<EOF | lxc exec "$nm_lxd" -- tee /etc/default/lxd-bridge
 USE_LXD_BRIDGE="true"
 LXD_BRIDGE="lxdbr0"
 UPDATE_PROFILE="true"
@@ -60,15 +59,14 @@ LXD_IPV6_NAT="false"
 LXD_IPV6_PROXY="false"
 EOF
 
-  	lxc exec lxd -- service lxd start
-  	lxc exec lxd -- service lxd restart
+  	lxc exec "$nm_lxd" -- service lxd start
+  	lxc exec "$nm_lxd" -- service lxd restart
 
     {
       echo "Acquire::http::Proxy \"http://$CACHE_VIP:3128\";" 
       echo 'Acquire::Languages "none";'
     } > ".99boxcache.$$" 
-    lxc file push ".99boxcache.$$" docker/etc/apt/apt.conf.d/99boxcache
-    lxc file push ".99boxcache.$$" lxd/etc/apt/apt.conf.d/99boxcache
+    lxc file push ".99boxcache.$$" "$nm_lxd"/etc/apt/apt.conf.d/99boxcache
     rm -f ".99boxcache.$$"
 
     echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock -s overlay'" > ".docker.$$"
