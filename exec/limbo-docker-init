@@ -10,6 +10,7 @@ function main {
 
   local nm_lxd='docker'
   local net_docker="$BASEBOX_DOCKER_NETWORK_PREFIX"
+  local nest_bridge="$BASEBOX_NESTED_NETWORK_PREFIX"
   local nm_docker="$BASEBOX_INSTANCE"
   local nm_snapshot="docker"
 
@@ -30,14 +31,44 @@ function main {
   lxc config set storage.lvm_volume_size 20GiB
 
   if [[ "$nm_lxd" == "docker" ]]; then
-    lxc launch ubuntu:16.04 "$nm_lxd" -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true 2>/dev/null || true
-    while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
+    lxc launch ubuntu:16.04 docker -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true 2>/dev/null || true
+    while [[ "$(echo | lxc exec docker -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
+    lxc exec docker -- mkdir -p /var/lib/docker
+    lxc config device add docker docker disk source=/dev/system/docker path=/var/lib/docker
+
+    lxc launch ubuntu:16.04 lxd -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true 2>/dev/null || true
+    while [[ "$(echo | lxc exec "lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
+
+		lxc exec lxd -- service lxd stop 2>/dev/null || true
+
+		cat <<EOF | lxc exec lxd -- tee /etc/default/lxd-bridge
+USE_LXD_BRIDGE="true"
+LXD_BRIDGE="lxdbr0"
+UPDATE_PROFILE="true"
+LXD_CONFILE=""
+LXD_DOMAIN="lxd"
+LXD_IPV4_ADDR="${nest_bridge}.1"
+LXD_IPV4_NETMASK="255.255.255.0"
+LXD_IPV4_NETWORK="${nest_bridge}.1/24"
+LXD_IPV4_DHCP_RANGE="${nest_bridge}.10,${nest_bridge}.200"
+LXD_IPV4_DHCP_MAX="191"
+LXD_IPV4_NAT="true"
+LXD_IPV6_ADDR=""
+LXD_IPV6_MASK=""
+LXD_IPV6_NETWORK=""
+LXD_IPV6_NAT="false"
+LXD_IPV6_PROXY="false"
+EOF
+
+  	lxc exec lxd -- service lxd start
+  	lxc exec lxd -- service lxd restart
 
     {
       echo "Acquire::http::Proxy \"http://$CACHE_VIP:3128\";" 
       echo 'Acquire::Languages "none";'
     } > ".99boxcache.$$" 
-    lxc file push ".99boxcache.$$" "${nm_lxd}"/etc/apt/apt.conf.d/99boxcache
+    lxc file push ".99boxcache.$$" docker/etc/apt/apt.conf.d/99boxcache
+    lxc file push ".99boxcache.$$" lxd/etc/apt/apt.conf.d/99boxcache
     rm -f ".99boxcache.$$"
 
     echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock -s overlay'" > ".docker.$$"
