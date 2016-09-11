@@ -102,7 +102,7 @@ EOF
     if ! lxc copy -c security.nesting=true "$nm_snapshot" "${nm_lxd}"; then
       lxc stop "${nm_lxd}"
     fi
-    vagrant sudo lvcreate -s -n "${nm_lxd}" "system/$nm_snapshot"
+    vagrant sudo lvcreate -s -n "${nm_lxd}" "system/${nm_snapshot##*/}"
     lxc config device remove "${nm_lxd}" docker
     lxc config device add "${nm_lxd}" docker disk source="/dev/system/${nm_lxd}"  path=/var/lib/docker 2>/dev/null || true
     lxc start "${nm_lxd}"
