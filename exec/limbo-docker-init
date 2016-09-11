@@ -9,21 +9,26 @@ function main {
   source "$shome/script/profile"
 
   local nm_lxd=
+  local net_lxd=
+
+  local nm_docker=
   local net_docker=
-  local net_nested_bridge=
+
   local nm_snapshot=
 
-  local nm_docker="${BASEBOX_INSTANCE}"
-
-  if [[ "$#" != 0 ]]; then
+  if [[ "$#" == 0 ]]; then
     nm_lxd="$1"; shift
-    nm_docker="${nm_lxd}"
-    net_docker="$1"; shift
-    if [[ -n "${1:-}" ]]; then
-      nm_snapshot="$1"; shift
-    fi
+    net_lxd="$1"; shift
   fi
 
+  if [[ "$#" == 2 ]]; then
+    nm_docker="$1"; shift
+    net_docker="$1"; shift
+  fi
+
+  if [[ -n "${1:-}" ]]; then
+    nm_snapshot="$1"; shift
+  fi
 
   set -x
 
@@ -35,8 +40,7 @@ function main {
   if [[ -z "$nm_snapshot" ]]; then
     lxc launch ubuntu:16.04 "$nm_lxd" -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true 2>/dev/null || true
     while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
-    lxc exec "$nm_lxd" -- mkdir -p /var/lib/docker
-    lxc config device add "$nm_lxd"dockerdocker disk source=/dev/system/docker path=/var/lib/docker 2>/dev/null || true
+
     lxc image copy ubuntu:16.04 local: --copy-aliases
 
 		lxc exec "$nm_lxd" -- service lxd stop 2>/dev/null || true
@@ -47,10 +51,10 @@ LXD_BRIDGE="lxdbr0"
 UPDATE_PROFILE="true"
 LXD_CONFILE=""
 LXD_DOMAIN="lxd"
-LXD_IPV4_ADDR="${net_nested_bridge}.1"
+LXD_IPV4_ADDR="${net_lxd}.1"
 LXD_IPV4_NETMASK="255.255.255.0"
-LXD_IPV4_NETWORK="${net_nested_bridge}.1/24"
-LXD_IPV4_DHCP_RANGE="${net_nested_bridge}.10,${net_nested_bridge}.200"
+LXD_IPV4_NETWORK="${net_lxd}.1/24"
+LXD_IPV4_DHCP_RANGE="${net_lxd}.10,${net_lxd}.200"
 LXD_IPV4_DHCP_MAX="191"
 LXD_IPV4_NAT="true"
 LXD_IPV6_ADDR=""
@@ -70,13 +74,19 @@ EOF
     lxc file push ".99boxcache.$$" "$nm_lxd"/etc/apt/apt.conf.d/99boxcache
     rm -f ".99boxcache.$$"
 
-    echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock -s overlay'" > ".docker.$$"
-    lxc file push ".docker.$$" "${nm_lxd}"/etc/default/docker
-    rm -f ".docker.$$"
+    if [[ -n "$nm_docker" ]]; then
+      lxc exec "$nm_lxd" -- mkdir -p /var/lib/docker
+      lxc config device add "$nm_lxd"dockerdocker disk source=/dev/system/docker path=/var/lib/docker 2>/dev/null || true
 
-    lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io
-    lxc exec "${nm_lxd}" -- service docker stop || true
-    lxc exec "${nm_lxd}" -- service docker start
+      echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock -s overlay'" > ".docker.$$"
+      lxc file push ".docker.$$" "${nm_lxd}"/etc/default/docker
+      rm -f ".docker.$$"
+
+      lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io
+      lxc exec "${nm_lxd}" -- service docker stop || true
+      lxc exec "${nm_lxd}" -- service docker start
+    fi
+
     limbo network init
   else
     if ! lxc copy -c security.nesting=true "$nm_snapshot" "$nm_lxd"; then
@@ -89,54 +99,54 @@ EOF
   lxc exec "${nm_lxd}" -- lxc profile set default security.privileged true
   lxc exec "${nm_lxd}" -- lxc profile set default security.nesting true
 
-  lxc exec "$nm_lxd" -- apt-get install -y aptitude ntp curl unzip git perl ruby language-pack-en nfs-common build-essential dkms lvm2 xfsprogs xfsdump bridge-utils thin-provisioning-tools software-properties-common
-
 	lxc exec "${nm_lxd}" -- touch /root/.cloud-init.hostname
   while true; do
     case "$(echo | lxc exec "$nm_lxd" -- systemctl is-active cloud-final.service)" in
-      active|failed)
-        break
-        ;;
-      *)
-        sleep 2
-        ;;
+      active|failed) break ;;
+      *) sleep 2 ;;
     esac
   done
 
-	lxc exec "${nm_lxd}" -- rm -f /var/lib/cloud/instance
-	lxc exec "${nm_lxd}" -- cloud-init init
-
-	lxc exec "${nm_lxd}" -- rm -f /var/lib/cloud/instance
-	lxc exec "${nm_lxd}" -- cloud-init init
+  for a in 1 2; do
+    lxc exec "${nm_lxd}" -- rm -f /var/lib/cloud/instance
+    lxc exec "${nm_lxd}" -- cloud-init init
+  done
 
 	lxc restart "${nm_lxd}"
   while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
-  local ip_docker="$(lxc list "${nm_lxd}" --format json | jq -r '.[].state.network.eth0.addresses[] | select(.family == "inet").address')"
-  ssh-keygen -R "$ip_docker"
 
-  if [[ "$nm_lxd" == "xdocker" ]]; then
-    ssh -A -o StrictHostKeyChecking=no "ubuntu@${ip_docker}" ssh -o StrictHostKeyChecking=no git@github.com true 2>/dev/null || true
-    if ! ssh "ubuntu@${ip_docker}" ls -d .git 2>/dev/null; then
-      ssh -A "ubuntu@${ip_docker}" git clone git@github.com:defn/home
-      ssh "ubuntu@${ip_docker}" mv home/.git .
-      ssh "ubuntu@${ip_docker}" git reset --hard
-      ssh "ubuntu@${ip_docker}" rm -rf home .profile
-      ssh -A "ubuntu@${ip_docker}" make
-    fi
+  local ip_lxd="$(lxc list "${nm_lxd}" --format json | jq -r '.[].state.network.eth0.addresses[] | select(.family == "inet").address')"
+  ssh-keygen -R "$ip_lxd"
+
+  if [[ -n "$nm_docker" ]]; then
+    (unset VAGRANT_DEFAULT_PROVIDER; limbo vagrant ssh -- sudo route add -net "${net_docker}.0" netmask 255.255.255.0 gw "$ip_lxd" 2>/dev/null || true)
+
+    lxc exec "${nm_lxd}" -- rm -f /etc/docker/key.json
+    docker machine rm -f "$nm_docker" 2>/dev/null || true
+    docker machine create --driver generic --generic-ip-address "$ip_lxd" --generic-ssh-user ubuntu \
+      --engine-install-url="" \
+      --engine-opt="bip=${net_docker}.1/24" \
+      --engine-storage-driver="overlay" \
+      --engine-opt="insecure-registry=172.28.130.2:5000" \
+      "$nm_docker"
   fi
 
-  (unset VAGRANT_DEFAULT_PROVIDER; limbo vagrant ssh -- sudo route add -net "${net_docker}.0" netmask 255.255.255.0 gw "$ip_docker" 2>/dev/null || true)
+  if [[ -z "${nm_snapshot}"  && "$nm_lxd" == "defn" ]]; then
+    lxc exec "$nm_lxd" -- apt-get install -y \
+      aptitude ntp curl unzip git perl ruby language-pack-en nfs-common \
+      build-essential dkms lvm2 xfsprogs xfsdump bridge-utils \
+      thin-provisioning-tools software-properties-common
 
-  lxc exec "${nm_lxd}" -- rm -f /etc/docker/key.json
-  docker machine rm -f "$nm_docker" 2>/dev/null || true
-  docker machine create --driver generic --generic-ip-address "$ip_docker" --generic-ssh-user ubuntu \
-    --engine-install-url="" \
-    --engine-opt="bip=${net_docker}.1/24" \
-    --engine-storage-driver="overlay" \
-    --engine-opt="insecure-registry=172.28.130.2:5000" \
-    "$nm_docker"
+    ssh -A -o StrictHostKeyChecking=no "ubuntu@${ip_lxd}" ssh -o StrictHostKeyChecking=no git@github.com true 2>/dev/null || true
 
-  lxc list "${nm_lxd}"
+    if ! ssh "ubuntu@${ip_lxd}" ls -d .git 2>/dev/null; then
+      ssh -A "ubuntu@${ip_lxd}" git clone git@github.com:defn/home
+      ssh "ubuntu@${ip_lxd}" mv home/.git .
+      ssh "ubuntu@${ip_lxd}" git reset --hard
+      ssh "ubuntu@${ip_lxd}" rm -rf home .profile
+      ssh -A "ubuntu@${ip_lxd}" make
+    fi
+  fi
 }
 
 source sub "$BASH_SOURCE" "$@"
