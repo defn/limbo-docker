@@ -16,12 +16,10 @@ function main {
 
   local nm_snapshot=
 
-  if [[ "$#" == 0 ]]; then
-    nm_lxd="$1"; shift
-    net_lxd="$1"; shift
-  fi
+  nm_lxd="$1"; shift
+  net_lxd="$1"; shift
 
-  if [[ "$#" == 2 ]]; then
+  if [[ "$#" -ge 2 ]]; then
     nm_docker="$1"; shift
     net_docker="$1"; shift
   fi
