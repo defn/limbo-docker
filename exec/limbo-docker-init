@@ -19,6 +19,7 @@ function main {
   local net_docker=
 
   local nm_snapshot=
+  local nm_snapshot_lvm=
 
   nm_lxd="$1"; shift
   net_lxd="$1"; shift
@@ -30,6 +31,12 @@ function main {
 
   if [[ -n "${1:-}" ]]; then
     nm_snapshot="$1"; shift
+  fi
+
+  if [[ -n "${1:-}" ]]; then
+    nm_snapshot_lvm="$1"; shift
+  else
+    nm_snapshot_lvm="$nm_snapshot"
   fi
 
   set -x
@@ -102,7 +109,7 @@ EOF
     if ! lxc copy -c security.nesting=true "$nm_snapshot" "${nm_lxd}"; then
       lxc stop "${nm_lxd}"
     fi
-    vagrant sudo lvcreate -s -n "${nm_lxd}" "system/${nm_snapshot##*/}"
+    vagrant sudo lvcreate -s -n "${nm_lxd}" "$nm_snapshot_lvm"
     lxc config device remove "${nm_lxd}" docker
     lxc config device add "${nm_lxd}" docker disk source="/dev/system/${nm_lxd}"  path=/var/lib/docker 2>/dev/null || true
     lxc start "${nm_lxd}"
