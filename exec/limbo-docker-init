@@ -39,8 +39,6 @@ function main {
     lxc launch ubuntu:16.04 "$nm_lxd" -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true 2>/dev/null || true
     while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
 
-    lxc image copy ubuntu:16.04 local: --copy-aliases
-
 		lxc exec "$nm_lxd" -- service lxd stop 2>/dev/null || true
 
 		cat <<EOF | lxc exec "$nm_lxd" -- tee /etc/default/lxd-bridge
@@ -74,7 +72,7 @@ EOF
 
     if [[ -n "$nm_docker" ]]; then
       lxc exec "$nm_lxd" -- mkdir -p /var/lib/docker
-      lxc config device add "$nm_lxd"dockerdocker disk source=/dev/system/docker path=/var/lib/docker 2>/dev/null || true
+      lxc config device add "$nm_lxd" docker disk source=/dev/system/docker path=/var/lib/docker 2>/dev/null || true
 
       echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock -s overlay'" > ".docker.$$"
       lxc file push ".docker.$$" "${nm_lxd}"/etc/default/docker
