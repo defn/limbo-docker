@@ -8,21 +8,22 @@ function main {
   local shome="${_limbo_home:-"$(cd -P -- "$(dirname -- "$BASH_SOURCE")/.." && pwd -P)"}"
   source "$shome/script/profile"
 
-  local nm_lxd='spiral'
-  local nm_docker="$BASEBOX_INSTANCE"
-  local nm_snapshot="docker"
+  local nm_lxd=
+  local net_docker=
+  local net_nested_bridge=
+  local nm_snapshot=
 
-  local net_docker="$BASEBOX_DOCKER_NETWORK_PREFIX"
-  local nest_bridge="$BASEBOX_NESTED_NETWORK_PREFIX"
+  local nm_docker="${BASEBOX_INSTANCE}"
 
   if [[ "$#" != 0 ]]; then
     nm_lxd="$1"; shift
-    nm_docker="$nm_lxd"
+    nm_docker="${nm_lxd}"
     net_docker="$1"; shift
     if [[ -n "${1:-}" ]]; then
       nm_snapshot="$1"; shift
     fi
   fi
+
 
   set -x
 
@@ -31,7 +32,7 @@ function main {
 
   lxc config set storage.lvm_volume_size 20GiB
 
-  if [[ "$nm_lxd" == "spiral" ]]; then
+  if [[ -z "$nm_snapshot" ]]; then
     lxc launch ubuntu:16.04 "$nm_lxd" -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true 2>/dev/null || true
     while [[ "$(echo | lxc exec "$nm_lxd" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
     lxc exec "$nm_lxd" -- mkdir -p /var/lib/docker
@@ -46,10 +47,10 @@ LXD_BRIDGE="lxdbr0"
 UPDATE_PROFILE="true"
 LXD_CONFILE=""
 LXD_DOMAIN="lxd"
-LXD_IPV4_ADDR="${nest_bridge}.1"
+LXD_IPV4_ADDR="${net_nested_bridge}.1"
 LXD_IPV4_NETMASK="255.255.255.0"
-LXD_IPV4_NETWORK="${nest_bridge}.1/24"
-LXD_IPV4_DHCP_RANGE="${nest_bridge}.10,${nest_bridge}.200"
+LXD_IPV4_NETWORK="${net_nested_bridge}.1/24"
+LXD_IPV4_DHCP_RANGE="${net_nested_bridge}.10,${net_nested_bridge}.200"
 LXD_IPV4_DHCP_MAX="191"
 LXD_IPV4_NAT="true"
 LXD_IPV6_ADDR=""
