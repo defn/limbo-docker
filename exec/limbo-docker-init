@@ -80,20 +80,20 @@ EOF
     rm -f ".99boxcache.$$"
 
     if [[ -n "$nm_docker" ]]; then
-      while ! vagrant sudo lvs system/docker; do
-        vagrant sudo lvcreate -T -l '50%FREE' system/docker
+      while ! vagrant sudo lvs inception/docker; do
+        vagrant sudo lvcreate -T -l '50%FREE' inception/docker
         sleep 1
       done
-      vagrant sudo lvcreate -V100G -T -n "${nm_lxd}" system/docker || true
+      vagrant sudo lvcreate -V100G -T -n "${nm_lxd}" inception/docker || true
       vagrant sudo mkdir -p "/mnt/${nm_lxd}"
-      if vagrant sudo mkfs.ext4 "/dev/system/${nm_lxd}"; then
-        vagrant sudo mount "/dev/system/${nm_lxd}" "/mnt/${nm_lxd}"
+      if vagrant sudo mkfs.ext4 "/dev/inception/${nm_lxd}"; then
+        vagrant sudo mount "/dev/inception/${nm_lxd}" "/mnt/${nm_lxd}"
         vagrant sudo chown -R 165536:165536 "/mnt/${nm_lxd}"
         vagrant sudo umount "/mnt/${nm_lxd}"
       fi
 
       lxc exec "${nm_lxd}" -- mkdir -p /var/lib/docker
-      lxc config device add "${nm_lxd}" docker disk source="/dev/system/${nm_lxd}"  path=/var/lib/docker 2>/dev/null || true
+      lxc config device add "${nm_lxd}" docker disk source="/dev/inception/${nm_lxd}"  path=/var/lib/docker 2>/dev/null || true
 
       echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock -s overlay'" > ".docker.$$"
       lxc file push ".docker.$$" "${nm_lxd}"/etc/default/docker
@@ -111,7 +111,7 @@ EOF
     fi
     vagrant sudo lvcreate -s -n "${nm_lxd}" "$nm_snapshot_lvm"
     lxc config device remove "${nm_lxd}" docker
-    lxc config device add "${nm_lxd}" docker disk source="/dev/system/${nm_lxd}"  path=/var/lib/docker 2>/dev/null || true
+    lxc config device add "${nm_lxd}" docker disk source="/dev/inception/${nm_lxd}"  path=/var/lib/docker 2>/dev/null || true
     lxc start "${nm_lxd}"
     while [[ "$(echo | lxc exec "${nm_lxd}" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
   fi
