@@ -133,7 +133,7 @@ EOF
   done
 
 	lxc stop "${nm_lxd}"
-	lxc start "${nm_lxd}"
+  lxc start "${nm_lxd}" || (sleep 5; lxc start "${nm_lxd}")
   while [[ "$(echo | lxc exec "${nm_lxd}" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
 
   local ip_lxd="$(lxc list "${nm_lxd}" --format json | jq -r '.[].state.network.eth0.addresses[] | select(.family == "inet").address')"
