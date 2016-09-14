@@ -45,22 +45,22 @@ function main {
   lxc profile set limbo user.user-data - < "$shome/cidata/user-data"
 
   if [[ -z "$nm_snapshot" ]]; then
-    lxc launch ubuntu:16.04 "${nm_lxd}" -p default -p docker -p limbo -c boot.autostart=true -c security.nesting=true 2>/dev/null || true
+    lxc launch ubuntu:16.04 "${nm_lxd}" -p default -p docker -p limbo -c boot.autostart=true 2>/dev/null || true
     while [[ "$(echo | lxc exec "${nm_lxd}" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
 
 		lxc exec "${nm_lxd}" -- service lxd stop 2>/dev/null || true
 
 		cat <<EOF | lxc exec "${nm_lxd}" -- tee /etc/default/lxd-bridge
-USE_LXD_BRIDGE="true"
+USE_LXD_BRIDGE="false"
 LXD_BRIDGE="lxdbr0"
-UPDATE_PROFILE="true"
+UPDATE_PROFILE="false"
 LXD_CONFILE=""
 LXD_DOMAIN="lxd"
-LXD_IPV4_ADDR="${net_lxd}.1"
-LXD_IPV4_NETMASK="255.255.255.0"
-LXD_IPV4_NETWORK="${net_lxd}.1/24"
-LXD_IPV4_DHCP_RANGE="${net_lxd}.10,${net_lxd}.200"
-LXD_IPV4_DHCP_MAX="191"
+LXD_IPV4_ADDR=""
+LXD_IPV4_NETMASK=""
+LXD_IPV4_NETWORK=""
+LXD_IPV4_DHCP_RANGE=""
+LXD_IPV4_DHCP_MAX=""
 LXD_IPV4_NAT="true"
 LXD_IPV6_ADDR=""
 LXD_IPV6_MASK=""
@@ -69,8 +69,23 @@ LXD_IPV6_NAT="false"
 LXD_IPV6_PROXY="false"
 EOF
 
+		cat <<EOF | lxc exec "${nm_lxd}" -- tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+network: {config: disabled}
+EOF
+
+		cat <<EOF | lxc exec "${nm_lxd}" -- tee /etc/network/interfaces.d/50-cloud-init.cfg
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+  up sleep 5
+  up fanctl up -o 250.0.0.0/8 -u eth0/16 --dhcp
+EOF
+
   	lxc exec "${nm_lxd}" -- service lxd start
   	lxc exec "${nm_lxd}" -- service lxd restart
+  	lxc exec "${nm_lxd}" -- systemctl enable lxd.service
 
     {
       echo "Acquire::http::Proxy \"http://$CACHE_VIP:3128\";" 
@@ -106,7 +121,7 @@ EOF
 
     limbo network init
   else
-    if ! lxc copy -c security.nesting=true "$nm_snapshot" "${nm_lxd}"; then
+    if ! lxc copy "$nm_snapshot" "${nm_lxd}"; then
       lxc stop "${nm_lxd}"
     fi
     vagrant sudo lvcreate -s -n "${nm_lxd}" "$nm_snapshot_lvm"
@@ -116,8 +131,11 @@ EOF
     while [[ "$(echo | lxc exec "${nm_lxd}" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
   fi
 
-  lxc exec "${nm_lxd}" -- lxc profile set default security.privileged true
   lxc exec "${nm_lxd}" -- lxc profile set default security.nesting true
+  lxc exec "${nm_lxd}" -- lxc profile set default security.privileged true
+	lxc exec "${nm_lxd}" -- lxc profile device set default eth0 parent fan-250
+	lxc exec "${nm_lxd}" -- lxc profile device set default eth0 mtu 1498
+
 
 	lxc exec "${nm_lxd}" -- touch /root/.cloud-init.hostname
   while true; do
@@ -140,9 +158,13 @@ EOF
   ssh-keygen -R "$ip_lxd"
 
   if [[ -n "$nm_docker" ]]; then
-    vagrant sudo route add -net "${net_docker}.0" netmask 255.255.255.0 gw "$ip_lxd" 2>/dev/null || true
+    lxc list --format json \
+      | jq -r '.[] | .state.network.eth0.addresses[] | select(.scope == "global") | .address' \
+      | while read -r a; do 
+          vagrant sudo ip route replace "250.$(echo $a | cut -d. -f3-4).0/24" via "$a"
+        done
 
-    lxc exec "${nm_lxd}" -- rm -f /etc/docker/key.json
+    xc exec "${nm_lxd}" -- rm -f /etc/docker/key.json
     docker machine rm -f "$nm_docker" 2>/dev/null || true
     docker machine create --driver generic --generic-ip-address "$ip_lxd" --generic-ssh-user ubuntu \
       --engine-install-url="" \
@@ -153,10 +175,7 @@ EOF
   fi
 
   if [[ -z "${nm_snapshot}"  && "${nm_lxd}" == "defn" ]]; then
-    lxc exec "${nm_lxd}" -- apt-get install -y \
-      aptitude ntp curl unzip git perl ruby language-pack-en nfs-common \
-      build-essential dkms lvm2 xfsprogs xfsdump bridge-utils \
-      thin-provisioning-tools software-properties-common
+    vagrant sudo ip route replace "${net_docker}.0/24" via "$ip_lxd"
 
     ssh -A -o StrictHostKeyChecking=no "ubuntu@${ip_lxd}" ssh -o StrictHostKeyChecking=no git@github.com true 2>/dev/null || true
 
