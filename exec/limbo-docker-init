@@ -45,7 +45,7 @@ function main {
   lxc profile set limbo user.user-data - < "$shome/cidata/user-data"
 
   if [[ -z "$nm_snapshot" ]]; then
-    lxc launch ubuntu:16.04 "${nm_lxd}" -p default -p docker -p limbo -c boot.autostart=true 2>/dev/null || true
+    lxc launch xenial "${nm_lxd}" -p default -p docker -p limbo -c boot.autostart=true 2>/dev/null || true
     while [[ "$(echo | lxc exec "${nm_lxd}" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
 
 		lxc exec "${nm_lxd}" -- service lxd stop 2>/dev/null || true
@@ -95,10 +95,6 @@ EOF
     rm -f ".99boxcache.$$"
 
     if [[ -n "$nm_docker" ]]; then
-      while ! vagrant sudo lvs inception/docker; do
-        vagrant sudo lvcreate -T -l '50%FREE' inception/docker
-        sleep 1
-      done
       vagrant sudo lvcreate -V100G -T -n "${nm_lxd}" inception/docker || true
       vagrant sudo mkdir -p "/mnt/${nm_lxd}"
       if vagrant sudo mkfs.ext4 "/dev/inception/${nm_lxd}"; then
