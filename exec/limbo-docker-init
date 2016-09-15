@@ -110,9 +110,18 @@ EOF
       lxc file push ".docker.$$" "${nm_lxd}"/etc/default/docker
       rm -f ".docker.$$"
 
-      lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io
+      lxc exec "${nm_lxd}" -- add-apt-repository ppa:ubuntu-lxc/lxd-stable
+      lxc exec "${nm_lxd}" -- apt update
+      lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io lxd
       lxc exec "${nm_lxd}" -- service docker stop || true
       lxc exec "${nm_lxd}" -- service docker start
+      lxc exec "${nm_lxd}" -- usermod -aG lxd ubuntu
+      lxc exec "${nm_lxd}" -- usermod -aG docker ubuntu
+
+      lxc exec "${nm_lxd}" -- lxc image copy ubuntu:14.04 local: --alias trusty
+      lxc exec "${nm_lxd}" -- lxc image copy ubuntu:16.04 local: --alias xenial
+      lxc exec "${nm_lxd}" -- docker pull ubuntu:trusty
+      lxc exec "${nm_lxd}" -- docker pull ubuntu:xenial
     fi
 
     limbo network init
