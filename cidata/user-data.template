@@ -17,6 +17,25 @@ users:
 
 packages:
  - openssh-server
+ - aptitude
+ - ntp
+ - curl
+ - unzip
+ - git
+ - perl
+ - ruby
+ - language-pack-en
+ - nfs-common
+ - build-essential
+ - dkms
+ - lvm2
+ - xfsprogs
+ - xfsdump
+ - bridge-utils
+ - thin-provisioning-tools
+ - software-properties-common
+ - btrfs-tools
+ - ubuntu-fan
 
 runcmd:
   - install -d -o root -g root -m 0755  /var/run/sshd
