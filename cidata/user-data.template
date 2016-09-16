@@ -36,8 +36,6 @@ packages:
  - software-properties-common
  - btrfs-tools
  - ubuntu-fan
- - make
- - python
 
 runcmd:
   - install -d -o root -g root -m 0755  /var/run/sshd
