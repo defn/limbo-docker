@@ -133,9 +133,7 @@ EOF
       lxc exec "${nm_lxd}" -- service docker stop || true
       lxc exec "${nm_lxd}" -- service docker start
 
-      lxc exec "${nm_lxd}" -- lxc image copy ubuntu:14.04 local: --alias trusty
       lxc exec "${nm_lxd}" -- lxc image copy ubuntu:16.04 local: --alias xenial
-      lxc exec "${nm_lxd}" -- docker pull ubuntu:trusty
       lxc exec "${nm_lxd}" -- docker pull ubuntu:xenial
 
       lxc exec "${nm_lxd}" -- usermod -aG lxd ubuntu
