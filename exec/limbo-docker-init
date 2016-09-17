@@ -129,7 +129,7 @@ EOF
       lxc exec "${nm_lxd}" -- ping -c 10 8.8.8.8
       lxc exec "${nm_lxd}" -- add-apt-repository -y --massive-debug ppa:ubuntu-lxc/lxd-stable
       lxc exec "${nm_lxd}" -- apt update
-      lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io lxd zfsutils criu lxd-tools
+      lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io lxd zfsutils-linux criu lxd-tools
       lxc exec "${nm_lxd}" -- service docker stop || true
       lxc exec "${nm_lxd}" -- service docker start
 
