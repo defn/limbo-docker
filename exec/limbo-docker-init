@@ -122,19 +122,12 @@ EOF
       while [[ "$(echo | lxc exec "${nm_lxd}" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
 
 
-      echo "DOCKER_OPTS='-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock -s overlay'" > ".docker.$$"
-      lxc file push ".docker.$$" "${nm_lxd}"/etc/default/docker
-      rm -f ".docker.$$"
-
       lxc exec "${nm_lxd}" -- ping -c 10 8.8.8.8
       lxc exec "${nm_lxd}" -- add-apt-repository -y --massive-debug ppa:ubuntu-lxc/lxd-stable
       lxc exec "${nm_lxd}" -- apt update
       lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io lxd zfsutils-linux criu lxd-tools
-      lxc exec "${nm_lxd}" -- service docker stop || true
-      lxc exec "${nm_lxd}" -- service docker start
 
       lxc exec "${nm_lxd}" -- lxc image copy ubuntu:16.04 local: --alias xenial
-      lxc exec "${nm_lxd}" -- docker pull ubuntu:xenial
 
       lxc exec "${nm_lxd}" -- usermod -aG lxd ubuntu
       lxc exec "${nm_lxd}" -- usermod -aG docker ubuntu
@@ -193,6 +186,8 @@ EOF
       --engine-opt="insecure-registry=172.28.128.1:5000" \
       --engine-opt="insecure-registry=172.28.128.1:5001" \
       "$nm_docker"
+
+    docker pull ubuntu:xenial
   fi
 
   if [[ -z "${nm_snapshot}"  && "${nm_lxd}" == "defn" ]]; then
