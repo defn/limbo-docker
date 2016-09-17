@@ -112,7 +112,7 @@ EOF
       vagrant sudo mkdir -p "/mnt/${nm_lxd}"
       if vagrant sudo mkfs.ext4 "/dev/inception/${nm_lxd}"; then
         vagrant sudo mount "/dev/inception/${nm_lxd}" "/mnt/${nm_lxd}"
-        vagrant sudo chown -R 165536:165536 "/mnt/${nm_lxd}"
+        vagrant sudo chown -R 100000:100000"/mnt/${nm_lxd}"
         vagrant sudo umount "/mnt/${nm_lxd}"
       fi
 
