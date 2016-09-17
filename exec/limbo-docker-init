@@ -193,6 +193,7 @@ EOF
       --engine-opt="bip=${net_docker}.1/24" \
       --engine-storage-driver="overlay" \
       --engine-opt="insecure-registry=172.28.128.1:5000" \
+      --engine-opt="insecure-registry=172.28.128.1:5001" \
       "$nm_docker"
   fi
 
