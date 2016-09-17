@@ -127,8 +127,6 @@ EOF
       lxc exec "${nm_lxd}" -- apt update
       lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io lxd zfsutils-linux criu lxd-tools
 
-      lxc exec "${nm_lxd}" -- lxc image copy ubuntu:16.04 local: --alias xenial
-
       lxc exec "${nm_lxd}" -- usermod -aG lxd ubuntu
       lxc exec "${nm_lxd}" -- usermod -aG docker ubuntu
     fi
@@ -186,8 +184,6 @@ EOF
       --engine-opt="insecure-registry=172.28.128.1:5000" \
       --engine-opt="insecure-registry=172.28.128.1:5001" \
       "$nm_docker"
-
-    lxc exec "${nm_lxd}" -- docker pull ubuntu:xenial
   fi
 
   if [[ -z "${nm_snapshot}"  && "${nm_lxd}" == "defn" ]]; then
