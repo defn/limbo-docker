@@ -180,7 +180,7 @@ EOF
     docker machine create --driver generic --generic-ip-address "$ip_lxd" --generic-ssh-user ubuntu \
       --engine-install-url="" \
       --engine-storage-driver="overlay" \
-      --engine-opt="b=fan-250" \
+      --engine-opt="bridge=fan-250" \
       --engine-opt="mtu=1480" \
       --engine-opt="iptables=false" \
       --engine-opt="fixed-cidr=250.$(lxc list --format json "${nm_lxd}" | jq -r '.[] | .state.network.eth0.addresses[] | select(.scope == "global") | .address' | cut -d. -f3-4).0/24" \
