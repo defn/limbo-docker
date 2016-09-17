@@ -122,8 +122,7 @@ EOF
       while [[ "$(echo | lxc exec "${nm_lxd}" -- systemctl is-active network-online.target)" != "active" ]]; do sleep 2; done
 
 
-      lxc exec "${nm_lxd}" -- ping -c 10 8.8.8.8
-      lxc exec "${nm_lxd}" -- add-apt-repository -y --massive-debug ppa:ubuntu-lxc/lxd-stable
+      lxc exec "${nm_lxd}" -- add-apt-repository -y ppa:ubuntu-lxc/lxd-stable
       lxc exec "${nm_lxd}" -- apt update
       lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io lxd zfsutils-linux criu lxd-tools
 
@@ -180,8 +179,11 @@ EOF
     docker machine rm -f "$nm_docker" 2>/dev/null || true
     docker machine create --driver generic --generic-ip-address "$ip_lxd" --generic-ssh-user ubuntu \
       --engine-install-url="" \
-      --engine-opt="bip=${net_docker}.1/24" \
       --engine-storage-driver="overlay" \
+      --engine-opt="b=fan-250" \
+      --engine-opt="mtu=1480" \
+      --engine-opt="iptables=false" \
+      --engine-opt="fixed-cidr=250.$(lxc list --format json "${nm_lxd}" | jq -r '.[] | .state.network.eth0.addresses[] | select(.scope == "global") | .address' | cut -d. -f3-4).0/24" \
       --engine-opt="insecure-registry=172.28.128.1:5000" \
       --engine-opt="insecure-registry=172.28.128.1:5001" \
       "$nm_docker"
