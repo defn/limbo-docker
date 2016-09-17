@@ -186,8 +186,6 @@ EOF
       --engine-opt="insecure-registry=172.28.128.1:5000" \
       --engine-opt="insecure-registry=172.28.128.1:5001" \
       "$nm_docker"
-
-    docker pull ubuntu:xenial
   fi
 
   if [[ -z "${nm_snapshot}"  && "${nm_lxd}" == "defn" ]]; then
