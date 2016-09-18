@@ -19,7 +19,6 @@ function main {
   local net_docker=
 
   local nm_snapshot=
-  local nm_snapshot_lvm=
 
   nm_lxd="$1"; shift
   net_lxd="$1"; shift
@@ -33,15 +32,16 @@ function main {
     nm_snapshot="$1"; shift
   fi
 
-  if [[ -n "${1:-}" ]]; then
-    nm_snapshot_lvm="$1"; shift
-  else
-    nm_snapshot_lvm="$nm_snapshot"
-  fi
-
   set -x
 
   if [[ -n "$nm_snapshot" ]]; then
+    local nm_snapshot_lvm=
+    if [[ -n "${1:-}" ]]; then
+      nm_snapshot_lvm="$1"; shift
+    else
+      nm_snapshot_lvm="$nm_snapshot"
+  fi
+
     if ! lxc copy "$nm_snapshot" "${nm_lxd}"; then
       lxc stop "${nm_lxd}"
     fi
@@ -50,25 +50,25 @@ function main {
     lxc config device set "${nm_lxd}" docker source "/dev/inception/${nm_lxd}"
     lxc start "${nm_lxd}"
   else
-    if lxc launch xenial "${nm_lxd}" -p default -p docker -p limbo -c boot.autostart=false; then
-      lxc exec "${nm_lxd}" -- touch /root/.cloud-init.hostname
-      while true; do
-        case "$(echo | lxc exec "${nm_lxd}" -- systemctl is-active cloud-final.service)" in
-          active|failed) break ;;
-          *) sleep 2 ;;
-        esac
-      done
+    lxc launch xenial "${nm_lxd}" -p default -p docker -p limbo -c boot.autostart=false
+    lxc exec "${nm_lxd}" -- touch /root/.cloud-init.hostname
+    while true; do
+      case "$(echo | lxc exec "${nm_lxd}" -- systemctl is-active cloud-final.service)" in
+        active|failed) break ;;
+        *) sleep 2 ;;
+      esac
+    done
 
-      for a in 1 2; do
-        lxc exec "${nm_lxd}" -- rm -f /var/lib/cloud/instance
-        lxc exec "${nm_lxd}" -- cloud-init init
-      done
+    for a in 1 2; do
+      lxc exec "${nm_lxd}" -- rm -f /var/lib/cloud/instance
+      lxc exec "${nm_lxd}" -- cloud-init init
+    done
 
-		  cat <<EOF | lxc exec "${nm_lxd}" -- tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+  cat <<EOF | lxc exec "${nm_lxd}" -- tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
 network: {config: disabled}
 EOF
 
-		  cat <<EOF | lxc exec "${nm_lxd}" -- tee /etc/network/interfaces.d/50-cloud-init.cfg
+  cat <<EOF | lxc exec "${nm_lxd}" -- tee /etc/network/interfaces.d/50-cloud-init.cfg
 auto lo
 iface lo inet loopback
 
@@ -77,48 +77,48 @@ iface eth0 inet dhcp
   up sleep 5
   up fanctl up -o 250.0.0.0/8 -u eth0/16 --dhcp
 EOF
-  	  lxc exec "${nm_lxd}" -- systemctl enable lxd.service
 
-      {
-        echo "Acquire::http::Proxy \"http://$CACHE_VIP:3128\";" 
-        echo 'Acquire::Languages "none";'
-      } > ".99boxcache.$$" 
-      lxc file push ".99boxcache.$$" "${nm_lxd}"/etc/apt/apt.conf.d/99boxcache
-      rm -f ".99boxcache.$$"
+    lxc exec "${nm_lxd}" -- systemctl enable lxd.service
 
-      if [[ -n "$nm_docker" ]]; then
-        vagrant sudo lvcreate -V100G -T -n "${nm_lxd}" inception/docker || true
-        vagrant sudo mkdir -p "/mnt/${nm_lxd}"
-        if vagrant sudo mkfs.ext4 "/dev/inception/${nm_lxd}"; then
-          vagrant sudo mount "/dev/inception/${nm_lxd}" "/mnt/${nm_lxd}"
-          vagrant sudo chown -R 100000:100000 "/mnt/${nm_lxd}"
-          vagrant sudo umount "/mnt/${nm_lxd}"
-        fi
+    {
+      echo "Acquire::http::Proxy \"http://$CACHE_VIP:3128\";" 
+      echo 'Acquire::Languages "none";'
+    } > ".99boxcache.$$" 
+    lxc file push ".99boxcache.$$" "${nm_lxd}"/etc/apt/apt.conf.d/99boxcache
+    rm -f ".99boxcache.$$"
 
-        if lxc exec "${nm_lxd}" -- mkdir /var/lib/docker 2>/dev/null; then
-          lxc config device add "${nm_lxd}" docker disk source="/dev/inception/${nm_lxd}" path=/var/lib/docker
-          lxc restart "${nm_lxd}"
-          while true; do
-            case "$(echo | lxc exec "${nm_lxd}" -- systemctl is-active cloud-final.service)" in
-              active|failed) break ;;
-              *) sleep 2 ;;
-            esac
-          done
-        fi
-
-        lxc exec "${nm_lxd}" -- add-apt-repository -y ppa:ubuntu-lxc/lxd-stable
-        lxc exec "${nm_lxd}" -- apt update
-        lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io lxd zfsutils-linux criu lxd-tools
-
-        lxc exec "${nm_lxd}" -- usermod -aG lxd ubuntu
-        lxc exec "${nm_lxd}" -- usermod -aG docker ubuntu
-
-        lxc exec "${nm_lxd}" -- lxc profile set default security.nesting true
-        lxc exec "${nm_lxd}" -- lxc profile set default security.privileged true
-        lxc exec "${nm_lxd}" -- lxc profile device set default eth0 parent fan-250
-        lxc exec "${nm_lxd}" -- lxc profile device set default eth0 mtu 1498
-
+    if [[ -n "$nm_docker" ]]; then
+      vagrant sudo lvcreate -V100G -T -n "${nm_lxd}" inception/docker || true
+      vagrant sudo mkdir -p "/mnt/${nm_lxd}"
+      if vagrant sudo mkfs.ext4 "/dev/inception/${nm_lxd}"; then
+        vagrant sudo mount "/dev/inception/${nm_lxd}" "/mnt/${nm_lxd}"
+        vagrant sudo chown -R 100000:100000 "/mnt/${nm_lxd}"
+        vagrant sudo umount "/mnt/${nm_lxd}"
       fi
+
+      if lxc exec "${nm_lxd}" -- mkdir /var/lib/docker 2>/dev/null; then
+        lxc config device add "${nm_lxd}" docker disk source="/dev/inception/${nm_lxd}" path=/var/lib/docker
+        lxc restart "${nm_lxd}"
+        while true; do
+          case "$(echo | lxc exec "${nm_lxd}" -- systemctl is-active cloud-final.service)" in
+            active|failed) break ;;
+            *) sleep 2 ;;
+          esac
+        done
+      fi
+
+      lxc exec "${nm_lxd}" -- add-apt-repository -y ppa:ubuntu-lxc/lxd-stable
+      lxc exec "${nm_lxd}" -- apt update
+      lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io lxd zfsutils-linux criu lxd-tools
+
+      lxc exec "${nm_lxd}" -- usermod -aG lxd ubuntu
+      lxc exec "${nm_lxd}" -- usermod -aG docker ubuntu
+
+      lxc exec "${nm_lxd}" -- lxc profile set default security.nesting true
+      lxc exec "${nm_lxd}" -- lxc profile set default security.privileged true
+      lxc exec "${nm_lxd}" -- lxc profile device set default eth0 parent fan-250
+      lxc exec "${nm_lxd}" -- lxc profile device set default eth0 mtu 1498
+
     fi
 
 		lxc exec "${nm_lxd}" -- service lxd stop
