@@ -13,19 +13,13 @@ function main {
   source "$shome/script/profile"
 
   local nm_lxd=
-  local net_lxd=
-
   local nm_docker=
-  local net_docker=
-
   local nm_snapshot=
 
   nm_lxd="$1"; shift
-  net_lxd="$1"; shift
 
-  if [[ "$#" -ge 2 ]]; then
+  if [[ -n "${1:-}" ]]; then
     nm_docker="$1"; shift
-    net_docker="$1"; shift
   fi
 
   if [[ -n "${1:-}" ]]; then
