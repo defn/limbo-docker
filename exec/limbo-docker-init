@@ -110,6 +110,7 @@ EOF
       lxc exec "${nm_lxd}" -- add-apt-repository -y ppa:ubuntu-lxc/lxd-stable
       lxc exec "${nm_lxd}" -- apt update
       lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install -y docker.io lxd zfsutils-linux criu lxd-tools
+      lxc exec "${nm_lxd}" -- env DEBIAN_FRONTEND=noninteractive apt -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade -y
 
       lxc exec "${nm_lxd}" -- usermod -aG lxd ubuntu
       lxc exec "${nm_lxd}" -- usermod -aG docker ubuntu
