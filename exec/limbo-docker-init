@@ -169,11 +169,11 @@ EOF
   ssh-keygen -R "$ip_lxd"
 
   if [[ -n "$nm_docker" ]]; then
-    lxc list --format json \
-      | jq -r '.[] | .state.network.eth0.addresses[] | select(.scope == "global") | .address' \
-      | while read -r a; do 
-          vagrant sudo ip route replace "250.$(echo $a | cut -d. -f3-4).0/24" via "$a"
-        done
+   #lxc list --format json \
+   #  | jq -r '.[] | .state.network.eth0.addresses[] | select(.scope == "global") | .address' \
+   #  | while read -r a; do 
+   #      vagrant sudo ip route replace "250.$(echo $a | cut -d. -f3-4).0/24" via "$a"
+   #    done
 
     lxc exec "${nm_lxd}" -- rm -f /etc/docker/key.json
     docker machine rm -f "$nm_docker" 2>/dev/null || true
